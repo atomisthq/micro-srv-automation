@@ -9,7 +9,9 @@
             [clojure.data.json :as json]
             [clojure.test :refer :all]
             [tentacles.core :as tentacles]
-            [tentacles.repos :as repos])
+            [tentacles.repos :as repos]
+            [tentacles.data :as data]
+            [clj-time.core])
   (:import (java.io File)))
 
 (defn- tweak-repo
@@ -36,8 +38,32 @@
                                        :status status
                                        :commit (-> commit-event :sha)
                                        :branch (or (-> commit-event :branch) "master") ;; TODO
-})
+                                       })
                  :content-type :json})))
+
+(defn link-image [event image team-id commit]
+  (log/info
+   (client/post (format "https://webhook.atomist.com/atomist/link-image/teams/%s" team-id)
+                {:body (json/json-str {:git {:owner (-> commit :repo :org :owner)
+                                             :repo (-> commit :repo :name)
+                                             :sha (-> commit :sha)}
+                                       :docker {:image image}
+                                       :type "link-image"})
+                 :content-type :json})))
+
+(defn make-tag [event version team-id commit]
+  (tentacles/with-defaults
+   {:oauth-token (api/get-secret-value event "github://org_token")}
+   (tentacles.data/create-tag
+    (-> commit :repo :org :owner)
+    (-> commit :repo :name)
+    version
+    "created by atomist service automation"
+    (-> commit :sha)                                        ;; object reference
+    "commit"                                                ;; commit, tree, or blob
+    {:name "Atomist bot"
+     :email "bot@atomist.com"
+     :data (str (clj-time.core/now))})))
 
 (defn with-build-events [f]
   (fn [event]
@@ -70,11 +96,19 @@
          :token (api/get-secret-value event "github://org_token")}} (fn [dir] (assoc event :dir dir))))))
 
 (defn build-docker [event]
-  (log/infof "do docker in cloned workspace %s" (:dir event)))
+  (log/infof "do docker in cloned workspace %s" (:dir event))
+  (let [team-id (api/get-team-id event)
+        commit (-> event :data :Push first :after)
+        version ""
+        image ""]
+    ;; build the docker container in the project in directory
+    (make-tag event version team-id commit)
+    (link-image event image team-id commit)))
 
 (defn
   ^{:event {:name "onPush"
             :description "watch Pushes"
+            :secrets ["github://org_token"]
             :subscription (slurp (io/resource "on-push.graphql"))}}
   on-push
   [event]
