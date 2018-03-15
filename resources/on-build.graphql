@@ -1,0 +1,16 @@
+subscription onBuild {
+  Build {
+    status
+    name
+    data
+    commit {
+      sha
+      repo {
+        name
+        org {
+          owner
+        }
+      }
+    }
+  }
+}

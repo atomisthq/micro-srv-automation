@@ -1,0 +1,25 @@
+<configuration scan="true" scanPeriod="30 seconds">
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <!-- encoders are assigned the type
+             ch.qos.logback.classic.encoder.PatternLayoutEncoder by default -->
+        <encoder>
+            <pattern>%d{MM/dd HH:mm:ss.SSS, PST} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="kafka" class="ch.qos.logback.core.FileAppender">
+        <file>log/kafka.log</file>
+        <encoder>
+            <pattern>%d{MM/dd HH:mm:ss.SSS, PST} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="org.apache.kafka" level="INFO" additivity="false">
+        <appender-ref ref="kafka"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT" />
+    </root>
+</configuration>

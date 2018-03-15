@@ -1,0 +1,13 @@
+subscription onPush {
+  Push {
+    after {
+      sha
+      repo {
+        name
+        org {
+          owner
+        }
+      }
+    }
+  }
+}
