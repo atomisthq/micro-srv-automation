@@ -77,8 +77,8 @@
                            :git-commit {:message message :name name :email email}
                            :git-push {:branch branch :oauth-token token :remote "origin"})
               (tentacles.core/with-defaults
-               {:oauth-token token}
-               (tentacles.pulls/create-pull owner repo title "master" branch {:body message})))
+                {:oauth-token token}
+                (tentacles.pulls/create-pull owner repo title "master" branch {:body message})))
           (log/info "Not raising PR as no changes made")))
       (catch Throwable t
         (log/error t (str "error running operation on " repo " " (.getMessage t)))

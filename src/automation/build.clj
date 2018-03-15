@@ -36,7 +36,7 @@
                                        :status status
                                        :commit (-> commit-event :sha)
                                        :branch (or (-> commit-event :branch) "master") ;; TODO
-                                       })
+})
                  :content-type :json})))
 
 (defn with-build-events [f]
@@ -94,13 +94,13 @@
     (try
       (->
        (tentacles/with-defaults
-        {:oauth-token (api/get-secret-value event "github://org_token")}
-        (let [commit (-> event :data :Build first :commit)]
-          (repos/create-status
-           (-> commit :repo :org :owner)
-           (-> commit :repo :name)
-           (-> commit :sha)
-           {:state "pending" :context "deploy/atomist/k8s/production"})))
+         {:oauth-token (api/get-secret-value event "github://org_token")}
+         (let [commit (-> event :data :Build first :commit)]
+           (repos/create-status
+            (-> commit :repo :org :owner)
+            (-> commit :repo :name)
+            (-> commit :sha)
+            {:state "pending" :context "deploy/atomist/k8s/production"})))
        clojure.pprint/pprint
        with-out-str
        log/info)
@@ -132,5 +132,4 @@
 (defn -main [& args]
   (log/info (mount/start))
   (.join (Thread/currentThread)))
-
 
