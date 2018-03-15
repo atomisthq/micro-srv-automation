@@ -38,7 +38,7 @@
                                        :status status
                                        :commit (-> commit-event :sha)
                                        :branch (or (-> commit-event :branch) "master") ;; TODO
-                                       })
+})
                  :content-type :json})))
 
 (defn link-image [event image team-id commit]
@@ -53,17 +53,17 @@
 
 (defn make-tag [event version team-id commit]
   (tentacles/with-defaults
-   {:oauth-token (api/get-secret-value event "github://org_token")}
-   (tentacles.data/create-tag
-    (-> commit :repo :org :owner)
-    (-> commit :repo :name)
-    version
-    "created by atomist service automation"
-    (-> commit :sha)                                        ;; object reference
-    "commit"                                                ;; commit, tree, or blob
-    {:name "Atomist bot"
-     :email "bot@atomist.com"
-     :data (str (clj-time.core/now))})))
+    {:oauth-token (api/get-secret-value event "github://org_token")}
+    (tentacles.data/create-tag
+     (-> commit :repo :org :owner)
+     (-> commit :repo :name)
+     version
+     "created by atomist service automation"
+     (-> commit :sha)                                        ;; object reference
+     "commit"                                                ;; commit, tree, or blob
+     {:name "Atomist bot"
+      :email "bot@atomist.com"
+      :data (str (clj-time.core/now))})))
 
 (defn with-build-events [f]
   (fn [event]
