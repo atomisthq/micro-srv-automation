@@ -3,7 +3,7 @@
   :url "http://example.com/FIXME"
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/core.async "0.4.474"]         ; because someones core.async clashes with 1.9.0
-                 [com.atomist/automation-client-clj "0.3.15" :exclusions [org.clojure/clojure commons-logging log4j org.slf4j/slf4j-log4j12]]
+                 [com.atomist/automation-client-clj "0.3.16-SNAPSHOT" :exclusions [org.clojure/clojure commons-logging log4j org.slf4j/slf4j-log4j12]]
 
                  ;; logging
                  [io.clj/logging "0.8.1" :exclusions [org.clojure/tools.logging]]

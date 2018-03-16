@@ -1,7 +1,7 @@
-(ns user)
+(ns user
+  (:require [automation.build]
+            [mount.core :as mount]))
 
 (comment
-  (do
-    (require 'automation.build)
-    (automation.build/-main))
-  (mount/stop))
+ (mount/start)
+ (mount/stop))

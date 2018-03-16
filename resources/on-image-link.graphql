@@ -1,0 +1,42 @@
+subscription OnImageLinked {
+  ImageLinked {
+    commit {
+      sha
+      message
+      author {
+        person {
+          id
+          name
+          chatId {
+            screenName
+          }
+        }
+      }
+      repo {
+        owner
+        name
+        channels {
+          team {
+            id
+          }
+          name
+          id
+        }
+        org {
+          chatTeam {
+            id
+          }
+        }
+      }
+      statuses {
+        context
+        description
+        state
+      }
+    }
+    image {
+      image
+      imageName
+    }
+  }
+}

@@ -1,0 +1,26 @@
+subscription KubeDeploySub {
+  Status(state: pending) {
+    context @required
+    description
+    state @required
+    targetUrl
+    commit @required {
+      sha @required
+      repo @required {
+        name @required
+        org @required {
+          owner @required
+          provider(providerId: "zjlmxjzwhurspem") @required {
+            providerId @required
+          }
+          team @required {
+            id @required
+          }
+        }
+      }
+      images @required {
+        imageName @required
+      }
+    }
+  }
+}
