@@ -1,0 +1,18 @@
+subscription onK8Pod {
+  K8Pod {
+    environment
+    state
+    phase
+    namespace
+    images {
+      containers {
+        imageName
+        imageName
+      }
+      commits {
+        sha
+      }
+    }
+    host
+  }
+}
