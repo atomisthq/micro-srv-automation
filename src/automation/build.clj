@@ -103,17 +103,17 @@
   (fn [event]
     (log/infof "do docker in cloned workspace %s" (:dir event))
     (f (assoc event
-         :image ""
-         :version ""))))
+              :image ""
+              :version ""))))
 
 (->
-  (clojure.java.shell/with-sh-dir
-    (java.io.File. "/Users/slim/repo/minikube-test")
-    (clojure.java.shell/sh "lein" "pprint" ":name" ":version" ":container"))
-  :out
-  (StringReader.)
-  (BufferedReader.)
-  (line-seq))
+ (clojure.java.shell/with-sh-dir
+   (java.io.File. "/Users/slim/repo/minikube-test")
+   (clojure.java.shell/sh "lein" "pprint" ":name" ":version" ":container"))
+ :out
+ (StringReader.)
+ (BufferedReader.)
+ (line-seq))
 ;; hub/name:version
 
 (defn make-tag-and-link-image [event]
