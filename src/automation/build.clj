@@ -12,7 +12,7 @@
             [tentacles.repos :as repos]
             [tentacles.data :as data]
             [clj-time.core])
-  (:import (java.io File)))
+  (:import (java.io File BufferedReader StringReader)))
 
 (defn- tweak-repo
   [o message dir]
@@ -99,13 +99,28 @@
          :token (api/get-secret-value event "github://org_token")}}
        (fn [dir] (f (assoc event :dir dir)))))))
 
-(defn build-docker [event]
-  (log/infof "do docker in cloned workspace %s" (:dir event))
+(defn with-docker-build [f]
+  (fn [event]
+    (log/infof "do docker in cloned workspace %s" (:dir event))
+    (f (assoc event
+         :image ""
+         :version ""))))
+
+(->
+  (clojure.java.shell/with-sh-dir
+    (java.io.File. "/Users/slim/repo/minikube-test")
+    (clojure.java.shell/sh "lein" "pprint" ":name" ":version" ":container"))
+  :out
+  (StringReader.)
+  (BufferedReader.)
+  (line-seq))
+;; hub/name:version
+
+(defn make-tag-and-link-image [event]
   (let [team-id (api/get-team-id event)
         commit (-> event :data :Push first :after)
-        version (format "version %s" (-> commit :sha))
-        image (format "image-name-%s" version)]
-    ;; build the docker container in the project in directory
+        version (:version event)
+        image (:image event)]
     (make-tag event version team-id commit)
     (link-image event image team-id commit)))
 
@@ -116,7 +131,8 @@
             :subscription (slurp (io/resource "on-push.graphql"))}}
   on-push
   [event]
-  ((-> build-docker
+  ((-> make-tag-and-link-image
+       (with-docker-build)
        (with-cloned-workspace)
        (with-build-events)
        (with-error-handler)) event))
