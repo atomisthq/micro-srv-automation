@@ -1,0 +1,30 @@
+subscription KubeStatusSub {
+  Status {
+    context @required
+    description
+    state @required
+    targetUrl
+    commit @required {
+      sha @required
+      repo @required {
+        name @required
+        channels {
+          name
+          team {
+            id name provider}}
+        org @required {
+          owner @required
+          provider(providerId: "zjlmxjzwhurspem") @required {
+            providerId @required
+          }
+          team @required {
+            id @required
+          }
+        }
+      }
+      images @required {
+        imageName @required
+      }
+    }
+  }
+}

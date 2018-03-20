@@ -42,6 +42,7 @@
                        :aot :all}
              :dev {:dependencies [[clj-local-secrets "0.5.1" :exclusions [org.clojure/clojure]]]
                    :source-paths ["dev/clj"]
+                   :jvm-opts ["-Xmx500m"]
                    :repl-options {:init-ns user}}}
 
   :repositories [["releases" {:url "https://sforzando.artifactoryonline.com/sforzando/libs-release-local"

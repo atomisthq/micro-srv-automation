@@ -11,6 +11,7 @@
             [tentacles.core :as tentacles]
             [tentacles.repos :as repos]
             [tentacles.data :as data]
+            [automation.lein-runner :as lein]
             [clj-time.core])
   (:import (java.io File BufferedReader StringReader)))
 
@@ -37,8 +38,8 @@
                                        :type "push"
                                        :status status
                                        :commit (-> commit-event :sha)
-                                       :branch (or (-> commit-event :branch) "master") ;; TODO
-})
+                                       :branch (or (-> commit-event :branch) "master")
+                                       })
                  :content-type :json})))
 
 (defn link-image [event image team-id commit]
@@ -56,17 +57,17 @@
   (log/info "make tag")
   (log/info
    (tentacles/with-defaults
-     {:oauth-token (api/get-secret-value event "github://org_token")}
-     (tentacles.data/create-tag
-      (-> commit :repo :org :owner)
-      (-> commit :repo :name)
-      version
-      "created by atomist service automation"
-      (-> commit :sha)                                       ;; object reference
-      "commit"                                               ;; commit, tree, or blob
-      {:name "Atomist bot"
-       :email "bot@atomist.com"
-       :data (str (clj-time.core/now))}))))
+    {:oauth-token (api/get-secret-value event "github://org_token")}
+    (tentacles.data/create-tag
+     (-> commit :repo :org :owner)
+     (-> commit :repo :name)
+     version
+     "created by atomist service automation"
+     (-> commit :sha)                                       ;; object reference
+     "commit"                                               ;; commit, tree, or blob
+     {:name "Atomist bot"
+      :email "bot@atomist.com"
+      :data (str (clj-time.core/now))}))))
 
 (defn with-build-events [f]
   (fn [event]
@@ -88,33 +89,65 @@
       (catch Throwable t
         (log/error t)))))
 
+(def atomist-commit-message "atomist:release")
+
+(defn with-skip-bot-commit [f]
+  (fn [event]
+    (let [commit-message (-> event :data :Push first :after :message)]
+      (log/infof "check after commit message %s" commit-message)
+      (if (.contains commit-message atomist-commit-message)
+        (do
+          (log/infof "skipping this atomist:commit push"))
+        (f event)))))
+
 (defn with-cloned-workspace [f]
   (fn [event]
     (let [commit (-> event :data :Push first :after)]
-      (git/run-with-cloned-workspace
+      (git/edit-in-a-cloned-workspace
        {:commit
         {:owner (-> commit :repo :org :owner)
          :repo (-> commit :repo :name)
          :sha "master"
+         :name "Atomist bot"
+         :email "bot@atomist.com"
          :token (api/get-secret-value event "github://org_token")}}
-       (fn [dir] (f (assoc event :dir dir)))))))
+       (fn [dir] (f (assoc event :dir dir)))
+       atomist-commit-message))))
+
+(def set-release-version [["clean"]
+                          ["change" "version" "leiningen.release/bump-version" "release"]])
+
+(def docker-build [["metajar"]
+                   ["container" "build"]
+                   ["container" "push"]])
+
+(def reset-release [["change" "version" "leiningen.release/bump-version" ":patch"]])
+
+(def extract-project-details [["pprint" ":name" ":version" ":container"]])
+
+(defn- log-run [d] (log/info (format "status: %s" (:exit d))) d)
+
+(defn- project-details [event]
+  (let [lines (->> (lein/lein-run event log-run extract-project-details)
+                   :out
+                   (StringReader.)
+                   (BufferedReader.)
+                   (line-seq))
+        project-name (-> lines first (read-string))
+        project-version (-> lines second (read-string))
+        hub (->> (drop 2 lines) (apply str) (read-string) :hub)]
+    [project-version (format "%s/%s:%s" hub project-name project-version)]))
 
 (defn with-docker-build [f]
   (fn [event]
     (log/infof "do docker in cloned workspace %s" (:dir event))
-    (f (assoc event
-              :image ""
-              :version ""))))
-
-(->
- (clojure.java.shell/with-sh-dir
-   (java.io.File. "/Users/slim/repo/minikube-test")
-   (clojure.java.shell/sh "lein" "pprint" ":name" ":version" ":container"))
- :out
- (StringReader.)
- (BufferedReader.)
- (line-seq))
-;; hub/name:version
+    (lein/lein-run event log-run set-release-version)
+    (lein/lein-run event log-run docker-build)
+    (let [[version image] (project-details event)]
+      (f (assoc event
+                :image image
+                :version version)))
+    (lein/lein-run event log-run reset-release)))
 
 (defn make-tag-and-link-image [event]
   (let [team-id (api/get-team-id event)
@@ -131,11 +164,13 @@
             :subscription (slurp (io/resource "on-push.graphql"))}}
   on-push
   [event]
-  ((-> make-tag-and-link-image
-       (with-docker-build)
-       (with-cloned-workspace)
-       (with-build-events)
-       (with-error-handler)) event))
+  (clojure.core.async/thread
+   ((-> make-tag-and-link-image
+        (with-docker-build)
+        (with-cloned-workspace)
+        (with-build-events)
+        (with-skip-bot-commit)
+        (with-error-handler)) event)))
 
 (defn
   ^{:event {:name "onBuild"
@@ -145,19 +180,17 @@
   on-build
   [event]
   (when (= "passed" (-> event :data :Build first :status))
+    (log/info "CREATE PENDING STATUS")
     (try
       (->
        (tentacles/with-defaults
-         {:oauth-token (api/get-secret-value event "github://org_token")}
-         (let [commit (-> event :data :Build first :commit)]
-           (repos/create-status
-            (-> commit :repo :org :owner)
-            (-> commit :repo :name)
-            (-> commit :sha)
-            {:state "pending" :context "deploy/atomist/k8s/production"})))
-       clojure.pprint/pprint
-       with-out-str
-       log/info)
+        {:oauth-token (api/get-secret-value event "github://org_token")}
+        (let [commit (-> event :data :Build first :commit)]
+          (repos/create-status
+           (-> commit :repo :org :owner)
+           (-> commit :repo :name)
+           (-> commit :sha)
+           {:state "pending" :context "deploy/atomist/k8s/production"}))))
       (catch Throwable t
         (log/error t)))))
 
@@ -168,25 +201,40 @@
             :subscription (slurp (io/resource "on-status.graphql"))}}
   kube-deploy
   [event]
-  (log/infof "got event %s" event))
+  (log/infof "DEPLOY PENDING got event %s" event))
 
 (defn
-  ^{:event {:name "KubeDeploySub"
+  ^{:event {:name "OnImageLinked"
             :description "watch Status"
             :secrets [{:uri "github://org_token"}]
             :subscription (slurp (io/resource "on-image-link.graphql"))}}
   image-linked
   [event]
-  (log/infof "got event %s" event))
+  (log/infof "IMAGE LINKED got event %s" event))
 
 (defn
-  ^{:event {:name "onK8Pod"
-            :description "watch K8Pods"
+  ^{:event {:name "KubeStatusSub"
+            :description "watch Status"
             :secrets [{:uri "github://org_token"}]
-            :subscription (slurp (io/resource "onK8Pod.graphql"))}}
-  image-linked
+            :subscription (slurp (io/resource "on-status-deployed.graphql"))}}
+  all-status
   [event]
-  (log/infof "got event %s" event))
+  (when (let [context (-> event :data :Status first :context)
+              state (-> event :data :Status first :state)]
+          (and
+           (= "deploy/atomist/k8s/production" context)
+           (= "success" state)))
+    (log/info "DEPLOY SUCCESS %s" event)
+    (let [s (-> event :data :Status first :targetUrl)
+          channel (-> event :data :Status first :commit :repo :channels first)
+          team (:team channel)]
+      (log/info (format "kube deployment for %s complete %s"
+                        team
+                        (clojure.string/replace s #"sdm.atomist.io" "192.168.99.100")))
+      (-> event
+          (api/add-slack-source (:id team) (:name team))
+          (api/channel (:name channel))
+          (api/simple-message (format "kube deployment complete %s" (clojure.string/replace s #"sdm.atomist.io" "192.168.99.100")))))))
 
 (defn
   ^{:command {:name "commit"
@@ -209,29 +257,6 @@
       (assoc-in [:commit :token] (api/get-secret-value o "github://user_token?scopes=repo")))
      (partial tweak-repo o message)
      message)))
-
-(defn
-  ^{:command {:name "button-commit"
-              :description "make a commit button"
-              :intent ["kick me"]
-              :secrets [{:uri "github://user_token?scopes=repo"}]}}
-  kick-commit
-  [o]
-  (api/actionable-message
-   o
-   {:text         "okay, go"
-    :attachments
-    [{:footer      ""
-      :callback_id "callbackid"
-      :text        "kick commit?"
-      :markdwn_in  ["text"]
-      :actions     [{:text            "do it"
-                     :type            "button"
-                     :atomist/command {:command "commit"
-                                       :parameters [{:name "message" :value "kick the thing"}]}
-                     :value           "do it ... do it"}]}]
-    :unfurl_links false
-    :unfurl_media false}))
 
 (defn -main [& args]
   (log/info (mount/start))

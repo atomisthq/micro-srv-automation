@@ -2,6 +2,7 @@ subscription onPush {
   Push {
     after {
       sha
+      message
       repo {
         name
         org {
