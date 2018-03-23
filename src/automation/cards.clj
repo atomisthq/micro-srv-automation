@@ -29,24 +29,24 @@
 (ns-unmap *ns* 'on-card)
 
 #_(defn
-  ^{:event {:name "OnCards"
-            :description "watch Cards"
-            :secrets [{:uri "github://org_token"}]
-            :subscription (slurp (io/resource "on-card.graphql"))}}
-  on-card
-  [event]
-  (log/infof "CARD %s" event)
-  (let [provenance "@atomist/micro-srv-automation#OnCards"
-        card (-> event :data :Card first)]
-    (if (not (some #(= provenance (:name %)) (:provenance card)))
-      (-> event
-          (assoc :automation {:name "releaseCanary"
-                              :version (cs/get-config-value [:version])})
-          (api/ingest (-> card
-                          (update-in [:actions] conj {:registration (cs/get-config-value [:name])
-                                                      :command "releaseCanary"
-                                                      :text "Canary"
-                                                      :role ""
-                                                      :type "button"})
-                          (update-in [:provenance] (fnil conj []) {:name provenance}))
-                      "Card")))))
+    ^{:event {:name "OnCards"
+              :description "watch Cards"
+              :secrets [{:uri "github://org_token"}]
+              :subscription (slurp (io/resource "on-card.graphql"))}}
+    on-card
+    [event]
+    (log/infof "CARD %s" event)
+    (let [provenance "@atomist/micro-srv-automation#OnCards"
+          card (-> event :data :Card first)]
+      (if (not (some #(= provenance (:name %)) (:provenance card)))
+        (-> event
+            (assoc :automation {:name "releaseCanary"
+                                :version (cs/get-config-value [:version])})
+            (api/ingest (-> card
+                            (update-in [:actions] conj {:registration (cs/get-config-value [:name])
+                                                        :command "releaseCanary"
+                                                        :text "Canary"
+                                                        :role ""
+                                                        :type "button"})
+                            (update-in [:provenance] (fnil conj []) {:name provenance}))
+                        "Card")))))
