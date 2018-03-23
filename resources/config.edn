@@ -4,4 +4,4 @@
  :dev-mode false
  :github-token "729c6d1e96681f73afa573a9428e0118822607a1"
  :team-id "ANBD24ZEC"
- :automation-namespaces ["automation.build"]}
+ :automation-namespaces ["automation.build" "automation.cards"]}

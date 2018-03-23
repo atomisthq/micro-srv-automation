@@ -1,0 +1,148 @@
+subscription OnCards {
+  Card {
+    id
+    ts
+    ttl
+    post
+    key
+    repository {
+      name
+      owner
+      slug
+    }
+    type
+    shortTitle
+    title {
+      icon
+      text
+    }
+    body {
+      avatar
+      login
+      text
+      hint
+      ts
+    }
+    correlations {
+      type
+      icon
+      title
+      shortTitle
+      link
+      body {
+        icon
+        text
+      }
+    }
+    collaborators {
+      avatar
+      login
+      link
+    }
+    events {
+      icon
+      text
+      ts
+      actions {
+        text
+        type
+        registration
+        command
+        parameters {
+          name
+          value
+        }
+        parameterName
+        parameterOptions {
+          name
+          value
+        }
+        parameterOptionGroups {
+          name
+          options {
+            name
+            value
+          }
+        }
+        role
+      }
+      actionGroups {
+        actions {
+          text
+          type
+          registration
+          command
+          parameters {
+            name
+            value
+          }
+          parameterName
+          parameterOptions {
+            name
+            value
+          }
+          parameterOptionGroups {
+            name
+            options {
+              name
+              value
+            }
+          }
+          role
+        }
+      }
+    }
+    actions {
+      text
+      type
+      registration
+      command
+      role
+      parameters {
+        name
+        value
+      }
+      parameterName
+      parameterOptions {
+        name
+        value
+      }
+      parameterOptionGroups {
+        name
+        options {
+          name
+          value
+        }
+      }
+    }
+    actionGroups {
+      text
+      actions {
+        text
+        type
+        registration
+        command
+        role
+        parameters {
+          name
+          value
+        }
+        parameterName
+        parameterOptions {
+          name
+          value
+        }
+        parameterOptionGroups {
+          name
+          options {
+            name
+            value
+          }
+        }
+      }
+    }
+    provenance {
+      name
+    }
+  }
+}

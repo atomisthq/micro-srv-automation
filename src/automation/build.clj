@@ -234,7 +234,20 @@
       (-> event
           (api/add-slack-source (:id team) (:name team))
           (api/channel (:name channel))
-          (api/simple-message (format "kube deployment complete %s" (clojure.string/replace s #"sdm.atomist.io" "192.168.99.100")))))))
+          (api/actionable-message
+           {:text (format "kube deployment complete %s" (clojure.string/replace s #"sdm.atomist.io" "192.168.99.100"))
+            :attachments
+            [{:footer ""
+              :callback_id "callbackid"
+              :text "release the canary"
+              :markdwn_in ["text"]
+              :actions [{:text "let it fly"
+                         :type "button"
+                         :atomist/command {:command "releaseCanary"
+                                           :parameters []}
+                         :value "do it ... do it"}]}]
+            :unfurl_links false
+            :unfurl_media false})))))
 
 (defn
   ^{:command {:name "commit"

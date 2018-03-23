@@ -15,29 +15,6 @@
             [clj-time.core]))
 
 (defn
-  ^{:command {:name "button-commit"
-              :description "make a commit button"
-              :intent ["kick me"]
-              :secrets [{:uri "github://user_token?scopes=repo"}]}}
-  kick-commit
-  [o]
-  (api/actionable-message
-   o
-   {:text "okay, go"
-    :attachments
-    [{:footer ""
-      :callback_id "callbackid"
-      :text "kick commit?"
-      :markdwn_in ["text"]
-      :actions [{:text "do it"
-                 :type "button"
-                 :atomist/command {:command "commit"
-                                   :parameters [{:name "message" :value "kick the thing"}]}
-                 :value "do it ... do it"}]}]
-    :unfurl_links false
-    :unfurl_media false}))
-
-(defn
   ^{:event {:name "onK8Pod"
             :description "watch K8Pods"
             :secrets [{:uri "github://org_token"}]
