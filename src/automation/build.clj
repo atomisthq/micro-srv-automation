@@ -38,8 +38,7 @@
                                        :type "push"
                                        :status status
                                        :commit (-> commit-event :sha)
-                                       :branch (or (-> commit-event :branch) "master")
-                                       })
+                                       :branch (or (-> commit-event :branch) "master")})
                  :content-type :json})))
 
 (defn link-image [event image team-id commit]
@@ -57,17 +56,17 @@
   (log/info "make tag")
   (log/info
    (tentacles/with-defaults
-    {:oauth-token (api/get-secret-value event "github://org_token")}
-    (tentacles.data/create-tag
-     (-> commit :repo :org :owner)
-     (-> commit :repo :name)
-     version
-     "created by atomist service automation"
-     (-> commit :sha)                                       ;; object reference
-     "commit"                                               ;; commit, tree, or blob
-     {:name "Atomist bot"
-      :email "bot@atomist.com"
-      :data (str (clj-time.core/now))}))))
+     {:oauth-token (api/get-secret-value event "github://org_token")}
+     (tentacles.data/create-tag
+      (-> commit :repo :org :owner)
+      (-> commit :repo :name)
+      version
+      "created by atomist service automation"
+      (-> commit :sha)                                       ;; object reference
+      "commit"                                               ;; commit, tree, or blob
+      {:name "Atomist bot"
+       :email "bot@atomist.com"
+       :data (str (clj-time.core/now))}))))
 
 (defn with-build-events [f]
   (fn [event]
@@ -165,12 +164,12 @@
   on-push
   [event]
   (clojure.core.async/thread
-   ((-> make-tag-and-link-image
-        (with-docker-build)
-        (with-cloned-workspace)
-        (with-build-events)
-        (with-skip-bot-commit)
-        (with-error-handler)) event)))
+    ((-> make-tag-and-link-image
+         (with-docker-build)
+         (with-cloned-workspace)
+         (with-build-events)
+         (with-skip-bot-commit)
+         (with-error-handler)) event)))
 
 (defn
   ^{:event {:name "onBuild"
@@ -184,13 +183,13 @@
     (try
       (->
        (tentacles/with-defaults
-        {:oauth-token (api/get-secret-value event "github://org_token")}
-        (let [commit (-> event :data :Build first :commit)]
-          (repos/create-status
-           (-> commit :repo :org :owner)
-           (-> commit :repo :name)
-           (-> commit :sha)
-           {:state "pending" :context "deploy/atomist/k8s/production"}))))
+         {:oauth-token (api/get-secret-value event "github://org_token")}
+         (let [commit (-> event :data :Build first :commit)]
+           (repos/create-status
+            (-> commit :repo :org :owner)
+            (-> commit :repo :name)
+            (-> commit :sha)
+            {:state "pending" :context "deploy/atomist/k8s/production"}))))
       (catch Throwable t
         (log/error t)))))
 

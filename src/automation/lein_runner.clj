@@ -5,8 +5,8 @@
   (log/info "running " args)
   (let [{:keys [out exit err] :as d}
         (clojure.java.shell/with-sh-dir
-         dir
-         (apply clojure.java.shell/sh args))]
+          dir
+          (apply clojure.java.shell/sh args))]
 
     (if (not (= 0 exit))
       (throw (ex-info "failed run" d))
