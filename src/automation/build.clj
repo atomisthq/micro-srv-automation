@@ -13,7 +13,8 @@
             [tentacles.data :as data]
             [automation.lein-runner :as lein]
             [clj-time.core])
-  (:import (java.io File BufferedReader StringReader)))
+  (:import (java.io File BufferedReader StringReader))
+  (:gen-class))
 
 (defn- tweak-repo
   [o message dir]

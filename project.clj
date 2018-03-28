@@ -1,9 +1,9 @@
-(defproject micro-srv-automation "0.1.1-SNAPSHOT"
+(defproject micro-srv-automation "0.1.1"
   :description ""
   :url "http://example.com/FIXME"
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/core.async "0.4.474"]         ; because someones core.async clashes with 1.9.0
-                 [com.atomist/automation-client-clj "0.4.0" :exclusions [org.clojure/clojure commons-logging log4j org.slf4j/slf4j-log4j12]]
+                 [com.atomist/automation-client-clj "0.4.2" :exclusions [org.clojure/clojure commons-logging log4j org.slf4j/slf4j-log4j12]]
 
                  ;; logging
                  [io.clj/logging "0.8.1" :exclusions [org.clojure/tools.logging]]
@@ -27,7 +27,7 @@
 
   :container {:name "micro-srv-automation"
               :dockerfile "/docker"
-              :hub "sforzando-dockerv2-local.jfrog.io"}
+              :hub "slimslender"}
 
   :jar-name "micro-srv-automation.jar"
   :main automation.build

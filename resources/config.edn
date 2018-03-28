@@ -2,6 +2,6 @@
  :version "0.1.1-SNAPSHOT"
  :domain "prod.atomist.services."
  :dev-mode false
- :github-token "729c6d1e96681f73afa573a9428e0118822607a1"
- :team-id "ANBD24ZEC"
+ :github-token ""
+ :team-id ""
  :automation-namespaces ["automation.build" "automation.cards"]}
