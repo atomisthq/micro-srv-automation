@@ -1,4 +1,4 @@
-(defproject micro-srv-automation "0.1.1"
+(defproject micro-srv-automation "0.1.6"
   :description ""
   :url "http://example.com/FIXME"
   :dependencies [[org.clojure/clojure "1.9.0"]
@@ -21,13 +21,14 @@
                  [tentacles "0.5.1"]
                  [com.atomist/clj-git-lib "0.3.0" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-cbor org.clojure/clojure commons-logging org.slf4j/slf4j-log4j12 prismatic/schema]]
 
-                 [com.climate/java.shell2 "0.1.0"]]
+                 [com.climate/java.shell2 "0.1.0"]
+                 [io.forward/semver "0.1.0"]]
 
   :min-lein-version "2.7.0"
 
   :container {:name "micro-srv-automation"
               :dockerfile "/docker"
-              :hub "slimslender"}
+              :hub "slimslenderslacks"}
 
   :jar-name "micro-srv-automation.jar"
   :main automation.build

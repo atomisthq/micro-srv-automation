@@ -12,7 +12,10 @@
             [tentacles.repos :as repos]
             [tentacles.data :as data]
             [automation.lein-runner :as lein]
-            [clj-time.core])
+            [clj-time.core]
+            [clojure.java.shell :as sh]
+            [clojure.string :as string]
+            [semver.core :as s])
   (:import (java.io File BufferedReader StringReader))
   (:gen-class))
 
@@ -57,17 +60,17 @@
   (log/info "make tag")
   (log/info
    (tentacles/with-defaults
-     {:oauth-token (api/get-secret-value event "github://org_token")}
-     (tentacles.data/create-tag
-      (-> commit :repo :org :owner)
-      (-> commit :repo :name)
-      version
-      "created by atomist service automation"
-      (-> commit :sha)                                       ;; object reference
-      "commit"                                               ;; commit, tree, or blob
-      {:name "Atomist bot"
-       :email "bot@atomist.com"
-       :data (str (clj-time.core/now))}))))
+    {:oauth-token (api/get-secret-value event "github://org_token")}
+    (tentacles.data/create-tag
+     (-> commit :repo :org :owner)
+     (-> commit :repo :name)
+     version
+     "created by atomist service automation"
+     (-> commit :sha)                                       ;; object reference
+     "commit"                                               ;; commit, tree, or blob
+     {:name "Atomist bot"
+      :email "bot@atomist.com"
+      :data (str (clj-time.core/now))}))))
 
 (defn with-build-events [f]
   (fn [event]
@@ -138,16 +141,69 @@
         hub (->> (drop 2 lines) (apply str) (read-string) :hub)]
     [project-version (format "%s/%s:%s" hub project-name project-version)]))
 
+(defn- call-build
+  [{:keys [dir version] :as event}]
+  (let [env {"DOCKER_REGISTRY" (System/getenv "DOCKER_REGISTRY")
+             "DOCKER_USER" (System/getenv "DOCKER_USER")
+             "DOCKER_PASSWORD" (System/getenv "DOCKER_PASSWORD")}]
+    (log/infof "call build.sh with environment %s and version %s" (dissoc env "DOCKER_PASSWORD") version)
+    (let [{:keys [exit out err]} (sh/with-sh-dir
+                                  dir
+                                  (sh/with-sh-env
+                                   env
+                                   (sh/sh "build.sh" version)))]
+      (log/infof "\nexit code:  %s\nout:  %s\nerr:  %s\n" exit out err)
+      (if (= 0 exit)
+        (assoc event :version version :image (slurp (File. dir "image.txt")))))))
+
+(defn- increment-patch [s]
+  (if (s/valid? s)
+    (let [new (-> s
+                  (s/parse)
+                  (s/increment-patch)
+                  (s/render))]
+      (log/infof "%s -> %s" s new) new)
+    (do
+      (log/warnf "unable to increment %s - not valid semantic version" s) s)))
+
+(defn- update-version
+  [event]
+  (let [version-file (File. (:dir event) "version.txt")
+        updated (-> (slurp version-file)
+                    (string/trim)
+                    (increment-patch))]
+    (spit version-file updated)
+    (assoc event :version updated)))
+
 (defn with-docker-build [f]
   (fn [event]
-    (log/infof "do docker in cloned workspace %s" (:dir event))
-    (lein/lein-run event log-run set-release-version)
-    (lein/lein-run event log-run docker-build)
-    (let [[version image] (project-details event)]
-      (f (assoc event
-                :image image
-                :version version)))
-    (lein/lein-run event log-run reset-release)))
+    (cond
+
+      ;; use a build.sh file if one is present
+      (and
+       (.exists (File. (:dir event) "build.sh"))
+       (.exists (File. (:dir event) "version.txt")))
+      (do
+        (log/info "we have discovered a build.sh")
+        (-> event
+            (update-version)
+            (call-build)
+            (f)))
+
+      ;; if this seems to be a leiningen project
+      (.exists (File. (:dir event) "project.clj"))
+      (do
+        (log/infof "do docker in cloned workspace %s" (:dir event))
+        (lein/lein-run event log-run set-release-version)
+        (lein/lein-run event log-run docker-build)
+        (let [[version image] (project-details event)]
+          (f (assoc event
+                    :image image
+                    :version version)))
+        (lein/lein-run event log-run reset-release))
+
+      :else
+      (log/info "there is nothing to build here"))))
 
 (defn make-tag-and-link-image [event]
   (let [team-id (api/get-team-id event)
@@ -165,12 +221,12 @@
   on-push
   [event]
   (clojure.core.async/thread
-    ((-> make-tag-and-link-image
-         (with-docker-build)
-         (with-cloned-workspace)
-         (with-build-events)
-         (with-skip-bot-commit)
-         (with-error-handler)) event)))
+   ((-> make-tag-and-link-image
+        (with-docker-build)
+        (with-cloned-workspace)
+        (with-build-events)
+        (with-skip-bot-commit)
+        (with-error-handler)) event)))
 
 (defn
   ^{:event {:name "onBuild"
@@ -184,13 +240,13 @@
     (try
       (->
        (tentacles/with-defaults
-         {:oauth-token (api/get-secret-value event "github://org_token")}
-         (let [commit (-> event :data :Build first :commit)]
-           (repos/create-status
-            (-> commit :repo :org :owner)
-            (-> commit :repo :name)
-            (-> commit :sha)
-            {:state "pending" :context "deploy/atomist/k8s/production"}))))
+        {:oauth-token (api/get-secret-value event "github://org_token")}
+        (let [commit (-> event :data :Build first :commit)]
+          (repos/create-status
+           (-> commit :repo :org :owner)
+           (-> commit :repo :name)
+           (-> commit :sha)
+           {:state "pending" :context "deploy/atomist/k8s/production"}))))
       (catch Throwable t
         (log/error t)))))
 

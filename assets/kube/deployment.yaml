@@ -1,0 +1,84 @@
+---
+kind: Deployment
+apiVersion: extensions/v1beta1
+metadata:
+  name: micro-srv-automation
+  namespace: splunk
+  labels:
+    app: micro-srv-automation
+    owner: atomist
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: micro-srv-automation
+      owner: atomist
+  template:
+    metadata:
+      labels:
+        app: micro-srv-automation
+        owner: atomist
+        version: "0"
+      annotations:
+        atomist.com/repo-image: '[{"container":"micro-srv-automation","repo":{"owner":"atomisthq","name":"micro-srv-automation"},"image":"slimslenderslacks/micro-srv-automation","strategy":"tag-semver"}]'
+    spec:
+      containers:
+      - name: micro-srv-automation
+        image: slimslenderslacks/micro-srv-automation:0.1.6
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: ATOMIST_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: atomist
+              key: token
+        - name: ATOMIST_TEAM
+          valueFrom:
+            secretKeyRef:
+              name: atomist
+              key: team
+        - name: DOCKER_REGISTRY
+          valueFrom:
+            secretKeyRef:
+              name: registry
+              key: registry
+        - name: DOCKER_USER
+          valueFrom:
+            secretKeyRef:
+              name: registry
+              key: username
+        - name: DOCKER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: registry
+              key: password
+        volumeMounts:
+          - name: docker-sock
+            mountPath: /var/run/docker.sock
+          - name: docker-bin
+            mountPath: /bin/docker
+        resources:
+          limits:
+            cpu: 0.5
+            memory: 160Mi
+          requests:
+            cpu: 0.1
+            memory: 128Mi
+      volumes:
+        - name: docker-sock
+          hostPath:
+            path: /var/run/docker.sock
+            type: Socket
+        - name: docker-bin
+          hostPath:
+            path: /bin/docker
+            type: File
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+      dnsPolicy: ClusterFirst
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
