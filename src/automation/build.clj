@@ -151,7 +151,7 @@
                                    dir
                                    (sh/with-sh-env
                                      env
-                                     (sh/sh "build.sh" version)))]
+                                     (sh/sh "./build.sh" version)))]
       (log/infof "\nexit code:  %s\nout:  %s\nerr:  %s\n" exit out err)
       (if (= 0 exit)
         (assoc event :version version :image (slurp (File. dir "image.txt")))))))
