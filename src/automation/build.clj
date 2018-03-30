@@ -157,7 +157,7 @@
                                      (sh/sh "./build.sh" version)))]
       (log/infof "\nexit code:  %s\nout:  %s\nerr:  %s\n" exit out err)
       (if (= 0 exit)
-        (assoc event :version version :image (slurp (File. dir "image.txt")))))))
+        (assoc event :version version :image (string/trim-newline (slurp (File. dir "image.txt"))))))))
 
 (defn- increment-patch [s]
   (if (s/valid? s)
