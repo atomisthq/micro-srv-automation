@@ -146,6 +146,9 @@
   (let [env {"DOCKER_REGISTRY" (System/getenv "DOCKER_REGISTRY")
              "DOCKER_USER" (System/getenv "DOCKER_USER")
              "DOCKER_PASSWORD" (System/getenv "DOCKER_PASSWORD")}]
+    (log/info "environment " (System/getenv))
+    (log/info "call ls in dir" (sh/with-sh-dir dir (sh/sh "ls" "-l")))
+    (log/info "call chmod" (sh/with-sh-dir dir (sh/sh "chmod" "755" "build.sh")))
     (log/infof "call build.sh with environment %s and version %s" (dissoc env "DOCKER_PASSWORD") version)
     (let [{:keys [exit out err]} (sh/with-sh-dir
                                    dir
