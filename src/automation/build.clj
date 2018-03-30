@@ -60,17 +60,17 @@
   (log/info "make tag")
   (log/info
    (tentacles/with-defaults
-    {:oauth-token (api/get-secret-value event "github://org_token")}
-    (tentacles.data/create-tag
-     (-> commit :repo :org :owner)
-     (-> commit :repo :name)
-     version
-     "created by atomist service automation"
-     (-> commit :sha)                                       ;; object reference
-     "commit"                                               ;; commit, tree, or blob
-     {:name "Atomist bot"
-      :email "bot@atomist.com"
-      :data (str (clj-time.core/now))}))))
+     {:oauth-token (api/get-secret-value event "github://org_token")}
+     (tentacles.data/create-tag
+      (-> commit :repo :org :owner)
+      (-> commit :repo :name)
+      version
+      "created by atomist service automation"
+      (-> commit :sha)                                       ;; object reference
+      "commit"                                               ;; commit, tree, or blob
+      {:name "Atomist bot"
+       :email "bot@atomist.com"
+       :data (str (clj-time.core/now))}))))
 
 (defn with-build-events [f]
   (fn [event]
@@ -148,10 +148,10 @@
              "DOCKER_PASSWORD" (System/getenv "DOCKER_PASSWORD")}]
     (log/infof "call build.sh with environment %s and version %s" (dissoc env "DOCKER_PASSWORD") version)
     (let [{:keys [exit out err]} (sh/with-sh-dir
-                                  dir
-                                  (sh/with-sh-env
-                                   env
-                                   (sh/sh "build.sh" version)))]
+                                   dir
+                                   (sh/with-sh-env
+                                     env
+                                     (sh/sh "build.sh" version)))]
       (log/infof "\nexit code:  %s\nout:  %s\nerr:  %s\n" exit out err)
       (if (= 0 exit)
         (assoc event :version version :image (slurp (File. dir "image.txt")))))))
@@ -221,12 +221,12 @@
   on-push
   [event]
   (clojure.core.async/thread
-   ((-> make-tag-and-link-image
-        (with-docker-build)
-        (with-cloned-workspace)
-        (with-build-events)
-        (with-skip-bot-commit)
-        (with-error-handler)) event)))
+    ((-> make-tag-and-link-image
+         (with-docker-build)
+         (with-cloned-workspace)
+         (with-build-events)
+         (with-skip-bot-commit)
+         (with-error-handler)) event)))
 
 (defn
   ^{:event {:name "onBuild"
@@ -240,13 +240,13 @@
     (try
       (->
        (tentacles/with-defaults
-        {:oauth-token (api/get-secret-value event "github://org_token")}
-        (let [commit (-> event :data :Build first :commit)]
-          (repos/create-status
-           (-> commit :repo :org :owner)
-           (-> commit :repo :name)
-           (-> commit :sha)
-           {:state "pending" :context "deploy/atomist/k8s/production"}))))
+         {:oauth-token (api/get-secret-value event "github://org_token")}
+         (let [commit (-> event :data :Build first :commit)]
+           (repos/create-status
+            (-> commit :repo :org :owner)
+            (-> commit :repo :name)
+            (-> commit :sha)
+            {:state "pending" :context "deploy/atomist/k8s/production"}))))
       (catch Throwable t
         (log/error t)))))
 
