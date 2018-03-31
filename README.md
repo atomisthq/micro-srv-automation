@@ -48,6 +48,7 @@ There are several critical things that are supplied through k8 secrets:
       will be written into slack)
 
 ![Slack image](img/Slack.png)
+[in lucid charts](https://www.lucidchart.com/documents/edit/3f42dede-5a3c-4b84-bca8-322e4e2ac6cf/1)
 
 We should be able to repeat this exact procedure for any number of Node.js repositories with zero
 additional config.  This is an important aspect of the overall procedure because

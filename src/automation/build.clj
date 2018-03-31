@@ -143,7 +143,7 @@
       (log/infof "\nexit code:  %s\nout:  %s\nerr:  %s\n" exit out err)
       (if (= 0 exit)
         (do
-          #_(log/info "docker login " (sh/with-sh-dir dir (sh/sh "/bin/sh" "docker" "login" (System/getenv "DOCKER_REGISTRY") "-u" (System/getenv "DOCKER_USER") "-p" (System/getenv "DOCKER_PASSWORD"))))
+          (log/info "docker login " (sh/with-sh-dir dir (sh/sh "sh" "-c" (format "docker login %s -u %s -p %s" (System/getenv "DOCKER_REGISTRY") (System/getenv "DOCKER_USER") (System/getenv "DOCKER_PASSWORD")))))
           (let [new-image (string/trim-newline (slurp (File. dir "image.txt")))]
             (log/info "docker push " new-image " -> " (sh/with-sh-dir dir (sh/sh "docker" "push" new-image)))
             (assoc event :version version :image new-image)))
