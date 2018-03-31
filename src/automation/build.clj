@@ -15,9 +15,16 @@
             [clj-time.core]
             [clojure.java.shell :as sh]
             [clojure.string :as string]
-            [semver.core :as s])
+            [semver.core :as s]
+            [com.atomist.automation.config-service :as cs])
   (:import (java.io File BufferedReader StringReader))
   (:gen-class))
+
+(defn- get-org-secret-or-use-start-token
+  [o]
+  (or (api/get-secret-value o "github://org_token")
+      (System/getenv "ATOMIST_TOKEN")
+      (cs/get-config-value [:github-token])))
 
 (defn- tweak-repo
   [o message dir]
@@ -60,7 +67,7 @@
   (log/info "make tag")
   (log/info
    (tentacles/with-defaults
-     {:oauth-token (api/get-secret-value event "github://org_token")}
+     {:oauth-token (get-org-secret-or-use-start-token event)}
      (tentacles.data/create-tag
       (-> commit :repo :org :owner)
       (-> commit :repo :name)
@@ -105,41 +112,22 @@
 
 (defn with-cloned-workspace [f]
   (fn [event]
-    (let [commit (-> event :data :Push first :after)]
-      (git/edit-in-a-cloned-workspace
-       {:commit
-        {:owner (-> commit :repo :org :owner)
-         :repo (-> commit :repo :name)
-         :sha "master"
-         :name "Atomist bot"
-         :email "bot@atomist.com"
-         :token (api/get-secret-value event "github://org_token")}}
-       (fn [dir] (f (assoc event :dir dir)))
-       atomist-commit-message))))
-
-(def set-release-version [["clean"]
-                          ["change" "version" "leiningen.release/bump-version" "release"]])
-
-(def docker-build [["metajar"]
-                   ["container" "build"]
-                   ["container" "push"]])
-
-(def reset-release [["change" "version" "leiningen.release/bump-version" ":patch"]])
-
-(def extract-project-details [["pprint" ":name" ":version" ":container"]])
-
-(defn- log-run [d] (log/info (format "status: %s" (:exit d))) d)
-
-(defn- project-details [event]
-  (let [lines (->> (lein/lein-run event log-run extract-project-details)
-                   :out
-                   (StringReader.)
-                   (BufferedReader.)
-                   (line-seq))
-        project-name (-> lines first (read-string))
-        project-version (-> lines second (read-string))
-        hub (->> (drop 2 lines) (apply str) (read-string) :hub)]
-    [project-version (format "%s/%s:%s" hub project-name project-version)]))
+    (let [commit (-> event :data :Push first :after)
+          git-errors
+          (git/edit-in-a-cloned-workspace
+           {:commit
+            {:owner (-> commit :repo :org :owner)
+             :repo (-> commit :repo :name)
+             :sha "master"
+             :name "Atomist bot"
+             :email "bot@atomist.com"
+             :token (get-org-secret-or-use-start-token event)}}
+           (fn [dir] (f (assoc event :dir dir)))
+           atomist-commit-message)]
+      (log/info "git-errors " git-errors)
+      (if (not (empty? (:errors git-errors)))
+        (throw (ex-info "errors processing" (:errors git-errors)))
+        event))))
 
 (defn- call-build
   [{:keys [dir version] :as event}]
@@ -150,14 +138,16 @@
     (log/info "call ls in dir" (sh/with-sh-dir dir (sh/sh "ls" "-l")))
     (log/info "call chmod" (sh/with-sh-dir dir (sh/sh "chmod" "755" "build.sh")))
     (log/infof "call build.sh with environment %s and version %s" (dissoc env "DOCKER_PASSWORD") version)
-    (let [{:keys [exit out err]} (sh/with-sh-dir
-                                   dir
-                                   (sh/with-sh-env
-                                     env
-                                     (sh/sh "./build.sh" version)))]
+    (let [{:keys [exit out err] :as d}
+          (sh/with-sh-dir dir (sh/with-sh-env env (sh/sh "./build.sh" version)))]
       (log/infof "\nexit code:  %s\nout:  %s\nerr:  %s\n" exit out err)
       (if (= 0 exit)
-        (assoc event :version version :image (string/trim-newline (slurp (File. dir "image.txt"))))))))
+        (do
+          #_(log/info "docker login " (sh/with-sh-dir dir (sh/sh "/bin/sh" "docker" "login" (System/getenv "DOCKER_REGISTRY") "-u" (System/getenv "DOCKER_USER") "-p" (System/getenv "DOCKER_PASSWORD"))))
+          (let [new-image (string/trim-newline (slurp (File. dir "image.txt")))]
+            (log/info "docker push " new-image " -> " (sh/with-sh-dir dir (sh/sh "docker" "push" new-image)))
+            (assoc event :version version :image new-image)))
+        (throw (ex-info "docker build failed" d))))))
 
 (defn- increment-patch [s]
   (if (s/valid? s)
@@ -179,7 +169,7 @@
     (assoc event :version updated)))
 
 (defn with-docker-build [f]
-  (fn [event]
+  (fn [{:keys [dir] :as event}]
     (cond
 
       ;; use a build.sh file if one is present
@@ -197,18 +187,19 @@
       (.exists (File. (:dir event) "project.clj"))
       (do
         (log/infof "do docker in cloned workspace %s" (:dir event))
-        (lein/lein-run event log-run set-release-version)
-        (lein/lein-run event log-run docker-build)
-        (let [[version image] (project-details event)]
+        (lein/lein-run event lein/log-run lein/set-release-version)
+        (lein/lein-run event lein/log-run lein/docker-build)
+        (let [[version image] (lein/project-details event)]
           (f (assoc event
                     :image image
                     :version version)))
-        (lein/lein-run event log-run reset-release))
+        (lein/lein-run event lein/log-run lein/reset-release))
 
       :else
       (log/info "there is nothing to build here"))))
 
-(defn make-tag-and-link-image [event]
+(defn make-tag-and-link-image
+  [event]
   (let [team-id (api/get-team-id event)
         commit (-> event :data :Push first :after)
         version (:version event)
@@ -218,7 +209,7 @@
 
 (defn
   ^{:event {:name "onPush"
-            :description "watch Pushes"
+            :description "watch for Pushes and see whether we can create Docker Container"
             :secrets [{:uri "github://org_token"}]
             :subscription (slurp (io/resource "on-push.graphql"))}}
   on-push
@@ -233,7 +224,7 @@
 
 (defn
   ^{:event {:name "onBuild"
-            :description "watch Builds"
+            :description "watch for passed Builds and set a Pending Status"
             :secrets [{:uri "github://org_token"}]
             :subscription (slurp (io/resource "on-build.graphql"))}}
   on-build
@@ -243,7 +234,7 @@
     (try
       (->
        (tentacles/with-defaults
-         {:oauth-token (api/get-secret-value event "github://org_token")}
+         {:oauth-token (get-org-secret-or-use-start-token event)}
          (let [commit (-> event :data :Build first :commit)]
            (repos/create-status
             (-> commit :repo :org :owner)
@@ -273,7 +264,7 @@
 
 (defn
   ^{:event {:name "KubeStatusSub"
-            :description "watch Status"
+            :description "watch for k8-automation successful deployments"
             :secrets [{:uri "github://org_token"}]
             :subscription (slurp (io/resource "on-status-deployed.graphql"))}}
   all-status

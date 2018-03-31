@@ -4,7 +4,8 @@
             [tentacles.core]
             [tentacles.pulls])
   (:import (java.io File)
-           (java.util UUID)))
+           (java.util UUID)
+           (clojure.lang ExceptionInfo)))
 
 (defn delete-recursively [fname]
   (doseq [f (reverse (file-seq (clojure.java.io/file fname)))]
@@ -49,6 +50,9 @@
                    :git-add {:file-pattern "."}
                    :git-commit {:message message :name name :email email}
                    :git-push {:branch "master" :oauth-token token :remote "origin"})
+      (catch ExceptionInfo ei
+        (log/error ei (str "error processing repo " repo " " ei))
+        {:errors [{:processing (ex-data ei)}]})
       (catch Throwable t
         (log/error t (str "error running operation on " repo " " (.getMessage t)))
         {:errors [{:could_not_clone true}]})
