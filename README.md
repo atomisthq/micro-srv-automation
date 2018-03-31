@@ -29,8 +29,24 @@ There are several critical things that are supplied through k8 secrets:
   This seems a bit complex but it means that the docker image building and and k8-automation
   don't have to be in the same minikube, which will typically be the case in non-demo scenarios.
 
-```
+### Adding a Docker Image Automation
 
+```
+kubectl create -f https://raw.githubusercontent.com/atomisthq/micro-srv-automation/master/assets/kube/namespace.yaml
+
+kubectl --namespace=k8-automation create secret generic automation \
+        --from-literal=config='{"teamIds":["ANBD24ZEC"],"token":"XXXXXXXX","custom":{"hostUrl":"https://192.168.99.100","imagePullSecret":"artifactory","namespace":"splunk"}}'
+
+kubectl --namespace=splunk create secret generic registry \
+        --from-literal=registry=sforzando-dockerv2-local.jfrog.io \
+        --from-literal=username=jim \
+        --from-literal=password=XXXXXXX \
+        --from-literal=email=jim@atomist.com \
+
+kubectl --namespace=splunk create secret generic atomist \
+        --from-literal=team=ANBD24ZEC --from-literal=token=XXXXXXXXX
+
+kubectl --namespace=splunk create -f https://raw.githubusercontent.com/atomisthq/micro-srv-automation/master/assets/kube/deployment.yaml
 ```
 
 ## Workflow
