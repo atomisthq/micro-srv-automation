@@ -1,4 +1,4 @@
-(defproject micro-srv-automation "0.1.8"
+(defproject micro-srv-automation "0.1.10"
   :description ""
   :url "http://example.com/FIXME"
   :dependencies [[org.clojure/clojure "1.9.0"]

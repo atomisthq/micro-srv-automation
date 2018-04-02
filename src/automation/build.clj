@@ -269,6 +269,7 @@
             :subscription (slurp (io/resource "on-status-deployed.graphql"))}}
   all-status
   [event]
+  (log/info "KubeStatusSub " (:data event))
   (when (let [context (-> event :data :Status first :context)
               state (-> event :data :Status first :state)]
           (and
