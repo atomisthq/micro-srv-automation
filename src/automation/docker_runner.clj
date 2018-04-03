@@ -12,8 +12,8 @@
   [dir image]
   (log/info "docker login "
             (sh/with-sh-dir
-             dir
-             (sh/sh "sh" "-c" (format "docker login %s -u %s -p %s" (System/getenv "DOCKER_REGISTRY") (System/getenv "DOCKER_USER") (System/getenv "DOCKER_PASSWORD")))))
+              dir
+              (sh/sh "sh" "-c" (format "docker login %s -u %s -p %s" (System/getenv "DOCKER_REGISTRY") (System/getenv "DOCKER_USER") (System/getenv "DOCKER_PASSWORD")))))
   (log/info "docker push " image " -> " (sh/with-sh-dir dir (sh/sh "docker" "push" image))))
 
 (defn call-build
