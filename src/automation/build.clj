@@ -16,7 +16,8 @@
             [clojure.java.shell :as sh]
             [clojure.string :as string]
             [semver.core :as s]
-            [com.atomist.automation.config-service :as cs])
+            [com.atomist.automation.config-service :as cs]
+            [automation.docker-runner :as docker-runner])
   (:import (java.io File BufferedReader StringReader))
   (:gen-class))
 
@@ -122,32 +123,14 @@
              :name "Atomist bot"
              :email "bot@atomist.com"
              :token (get-org-secret-or-use-start-token event)}}
-           (fn [dir] (f (assoc event :dir dir)))
+           (fn [dir] (f (assoc event
+                               :dir dir
+                               :repo (-> commit :repo :name))))
            atomist-commit-message)]
       (log/info "git-errors " git-errors)
       (if (not (empty? (:errors git-errors)))
         (throw (ex-info "errors processing" (:errors git-errors)))
         event))))
-
-(defn- call-build
-  [{:keys [dir version] :as event}]
-  (let [env {"DOCKER_REGISTRY" (System/getenv "DOCKER_REGISTRY")
-             "DOCKER_USER" (System/getenv "DOCKER_USER")
-             "DOCKER_PASSWORD" (System/getenv "DOCKER_PASSWORD")}]
-    (log/info "environment " (System/getenv))
-    (log/info "call ls in dir" (sh/with-sh-dir dir (sh/sh "ls" "-l")))
-    (log/info "call chmod" (sh/with-sh-dir dir (sh/sh "chmod" "755" "build.sh")))
-    (log/infof "call build.sh with environment %s and version %s" (dissoc env "DOCKER_PASSWORD") version)
-    (let [{:keys [exit out err] :as d}
-          (sh/with-sh-dir dir (sh/with-sh-env env (sh/sh "./build.sh" version)))]
-      (log/infof "\nexit code:  %s\nout:  %s\nerr:  %s\n" exit out err)
-      (if (= 0 exit)
-        (do
-          (log/info "docker login " (sh/with-sh-dir dir (sh/sh "sh" "-c" (format "docker login %s -u %s -p %s" (System/getenv "DOCKER_REGISTRY") (System/getenv "DOCKER_USER") (System/getenv "DOCKER_PASSWORD")))))
-          (let [new-image (string/trim-newline (slurp (File. dir "image.txt")))]
-            (log/info "docker push " new-image " -> " (sh/with-sh-dir dir (sh/sh "docker" "push" new-image)))
-            (assoc event :version version :image new-image)))
-        (throw (ex-info "docker build failed" d))))))
 
 (defn- increment-patch [s]
   (if (s/valid? s)
@@ -161,27 +144,18 @@
 
 (defn- update-version
   [event]
-  (let [version-file (File. (:dir event) "version.txt")
-        updated (-> (slurp version-file)
-                    (string/trim)
-                    (increment-patch))]
-    (spit version-file updated)
-    (assoc event :version updated)))
+  (let [version-file (File. (:dir event) "version.txt")]
+    (if (not (.exists version-file))
+      (spit version-file "0.0.0"))
+    (let [updated (-> (slurp version-file)
+                      (string/trim)
+                      (increment-patch))]
+      (spit version-file updated)
+      (assoc event :version updated))))
 
 (defn with-docker-build [f]
   (fn [{:keys [dir] :as event}]
     (cond
-
-      ;; use a build.sh file if one is present
-      (and
-       (.exists (File. (:dir event) "build.sh"))
-       (.exists (File. (:dir event) "version.txt")))
-      (do
-        (log/info "we have discovered a build.sh")
-        (-> event
-            (update-version)
-            (call-build)
-            (f)))
 
       ;; if this seems to be a leiningen project
       (.exists (File. (:dir event) "project.clj"))
@@ -196,7 +170,12 @@
         (lein/lein-run event lein/log-run lein/reset-release))
 
       :else
-      (log/info "there is nothing to build here"))))
+      (do
+        (log/info "search for Dockerfile and manage version.txt file")
+        (-> event
+            (update-version)
+            (docker-runner/call-build)
+            (f))))))
 
 (defn make-tag-and-link-image
   [event]
