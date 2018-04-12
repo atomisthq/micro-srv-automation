@@ -18,7 +18,7 @@
                  [clj-time "0.14.2" :exclusions [org.slf4j/slf4j-log4j12 commons-logging]]
 
                  ;; github
-                 [tentacles "0.5.0"]
+                 [tentacles "0.5.1"]
                  [com.atomist/clj-git-lib "0.3.0" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-cbor org.clojure/clojure commons-logging org.slf4j/slf4j-log4j12 prismatic/schema]]
 
                  [com.climate/java.shell2 "0.1.0"]
