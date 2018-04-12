@@ -1,7 +1,7 @@
 (defproject micro-srv-automation "0.1.12"
   :description ""
   :url "http://example.com/FIXME"
-  :dependencies [[org.clojure/clojure "1.8.0"]
+  :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/core.async "0.4.474"]         ; because someones core.async clashes with 1.9.0
                  [com.atomist/automation-client-clj "0.4.2" :exclusions [org.clojure/clojure commons-logging log4j org.slf4j/slf4j-log4j12]]
 
